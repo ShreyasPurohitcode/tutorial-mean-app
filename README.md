@@ -161,3 +161,9 @@ git push origin main
 ## 🐳 Docker Hub
 
 ![Docker Hub](screenshots/dockerhub.png)
+
+
+## 📸 Screenshots
+
+![Home page](screenshots/homepage.png)
+![Add page](screenshots/addpage.png)
