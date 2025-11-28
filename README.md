@@ -1,31 +1,163 @@
-In this DevOps task, you need to build and deploy a full-stack CRUD application using the MEAN stack (MongoDB, Express, Angular 15, and Node.js). The backend will be developed with Node.js and Express to provide REST APIs, connecting to a MongoDB database. The frontend will be an Angular application utilizing HTTPClient for communication.  
+# MEAN Stack DevOps Deployment
 
-The application will manage a collection of tutorials, where each tutorial includes an ID, title, description, and published status. Users will be able to create, retrieve, update, and delete tutorials. Additionally, a search box will allow users to find tutorials by title.
+Containerized MEAN stack application with automated CI/CD pipeline, deployed on AWS EC2 using Docker, GitHub Actions, and Nginx reverse proxy.
 
-## Project setup
+---
 
-### Node.js Server
+## 🏗️ Architecture
 
+```
+┌─────────────┐     Push Code       ┌──────────────────┐
+│   GitHub    │ ──────────────────> │ GitHub Actions   │
+│ Repository  │                     │    (CI/CD)       │
+└─────────────┘                     └────────┬─────────┘
+                                             │
+                                             │ Build & Push
+                                             ↓
+                                    ┌──────────────────┐
+                                    │   Docker Hub     │
+                                    │  (Image Registry)│
+                                    └────────┬─────────┘
+                                             │
+                                             │ Pull Images
+                                             ↓
+┌────────────────────────────────────────────────────────────┐
+│                      AWS EC2 (Ubuntu)                      │
+│                                                            │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │            Nginx Reverse Proxy (Port 80)             │ │
+│  └──────────────┬───────────────────────┬────────────────┘ │
+│                 │                       │                  │
+│    ┌────────────▼────────────┐  ┌───────▼──────────┐      │
+│    │  Frontend Container     │  │ Backend Container│      │
+│    │   (Angular + Nginx)     │  │  (Node.js/Express)│     │
+│    └─────────────────────────┘  └──────────┬────────┘      │
+│                                            │                │
+│                                  ┌─────────▼────────┐       │
+│                                  │MongoDB Container │       │
+│                                  └──────────────────┘       │
+└────────────────────────────────────────────────────────────┘
+```
+
+---
+
+
+## 📁 Project Structure
+
+```
+tutorial-mean-app/
+├── backend/
+│   ├── Dockerfile
+│   └── app/config/db.config.js
+├── frontend/
+│   ├── Dockerfile
+│   ├── nginx.conf
+│   └── src/app/services/tutorial.service.ts
+├── .github/workflows/deploy.yaml
+├── docker-compose.yaml
+├── nginx-proxy.conf
+└── .env
+```
+
+---
+
+## 🚀 Quick Setup
+
+### 1. Local Setup
+
+```bash
+git clone https://github.com/YOUR_USERNAME/tutorial-mean-app.git
+cd tutorial-mean-app
+echo "DOCKER_USERNAME=your_username" > .env
+```
+
+### 2. Build Multi-Platform Images
+
+```bash
+# Setup buildx
+docker buildx create --name multiplatform-builder --use
+
+# Build & push backend
 cd backend
+docker buildx build --platform linux/amd64,linux/arm64 -t YOUR_USERNAME/mean-backend:latest --push .
 
-npm install
+# Build & push frontend
+cd ../frontend
+docker buildx build --platform linux/amd64,linux/arm64 -t YOUR_USERNAME/mean-frontend:latest --push .
+```
 
-You can update the MongoDB credentials by modifying the `db.config.js` file located in `app/config/`.
+---
 
-Run `node server.js`
+## ☁️ AWS EC2 Setup
 
-### Angular Client
+### Create Instance
+1. **AMI**: Ubuntu Server 22.04 LTS
+2. **Instance Type**: t2.medium
+3. **Key Pair**: Create new (save `.pem` file)
+4. **Security Group**: Allow SSH (22) and HTTP (80)
+5. **Storage**: 20 GiB
 
-cd frontend
+![EC2 Instance](screenshots/aws.png)
 
-npm install
+### Install Docker
 
-Run `ng serve --port 8081`
+```bash
+ssh -i ~/.ssh/your-key.pem ubuntu@YOUR_VM_IP
 
-You can modify the `src/app/services/tutorial.service.ts` file to adjust how the frontend interacts with the backend.
+sudo apt update
+sudo apt install -y docker.io
+sudo systemctl start docker
+sudo usermod -aG docker $USER
 
-Navigate to `http://localhost:8081/`
+# Install Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+```
 
+### Deploy Application
 
+```bash
+mkdir -p ~/mean-app && cd ~/mean-app
+git clone https://github.com/YOUR_USERNAME/tutorial-mean-app.git .
+echo "DOCKER_USERNAME=your_username" > .env
+docker-compose up -d
+```
 
-Testing for the workflow
+---
+
+## 🔄 CI/CD Pipeline
+
+### GitHub Secrets Configuration
+
+Add these secrets in: **Repository → Settings → Secrets and variables → Actions**
+
+| Secret Name | Description |
+|-------------|-------------|
+| `DOCKER_USERNAME` | Docker Hub username |
+| `DOCKER_PASSWORD` | Docker Hub password |
+| `VM_HOST` | EC2 Public IPv4 address |
+| `VM_USERNAME` | `ubuntu` |
+| `VM_SSH_KEY` | Complete `.pem` file content |
+
+![GitHub Secrets](screenshots/secrets.png)
+
+### Workflow Stages
+
+1. Checkout code
+2. Build backend & frontend images (multi-platform)
+3. Push to Docker Hub
+4. SSH to VM and deploy
+
+![CI/CD Pipeline](screenshots/cicd.png)
+
+**Trigger**: Push to `main` branch
+
+```bash
+git push origin main
+```
+
+---
+
+## 🐳 Docker Hub
+
+![Docker Hub](screenshots/dockerhub.png)
