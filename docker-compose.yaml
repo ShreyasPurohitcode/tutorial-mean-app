@@ -19,7 +19,7 @@ services:
     ports:
       - "4000:4000"
     environment:
-      - MONGO_URI=mongodb://mongodb:27017/meandb
+      - MONGO_URI=mongodb://mongodb:27017/dd_db
     depends_on:
       - mongodb
     networks:
